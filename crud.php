@@ -1,22 +1,19 @@
 <?php
-
-class back_index
+class crud
 {
 	public $insert = "insert into ";
 	public $select = "select ";
 	public $update = "update ";
 	public $delete = "delete from ";
 
-	function __construct()
+	function __construct($host, $user, $pass, $db)
 	{
-		$conn = new mysqli("localhost","root","","qbuilder");
+		$conn = mysqli_connect($host, $user, $pass, $db);
 		return $this->conn = $conn;
 	}
-
 	public function masukkan($table, $data = array())
 	{
 		$end = end($data);
-
 		$this->insert .= "$table (";
 		foreach($data as $d => $v)
 		{
@@ -24,7 +21,6 @@ class back_index
 			if ($v != $end)
 				$this->insert .= ",";
 		}
-
 		$this->insert .= ") values (";
 		
 		foreach($data as $d => $v)
@@ -33,14 +29,9 @@ class back_index
 			if ($v != $end)
 				$this->insert .= ",";
 		}
-
 		$this->insert .= ")";
-
-		$this->conn->query($this->insert);
-		print_r($this->insert);
 		return $this;
 	}
-
 	//$math = max(), min(), avg(), sum(), dll
 	function tampil($field, $table, $math=false)
 	{
@@ -48,73 +39,59 @@ class back_index
 			$this->select .= $math."(".$field.")";
 		else
 			$this->select .= $field;
-
 		$this->select .= " from " .$table." ";
 		$this->table = $table;
 		return $this;
 	}
 
-	//$not, $and dan $value2 khusus untuk between. $not = not between, $and = between a and b, $value = b
-	public function dimana($dml, $pre, $field, $logic, $value, $and=false, $value2=false, $not=false)
+	public function dimana($dml, $opt = array(), $like) 
 	{
 		$query = "";
-		if ($dml == "tampil")
-			$query .= $this->select; 
-		else if ($dml == "ubah")
+		if($dml=="ubah")
 			$query .= $this->update;
-		else if($dml == "hapus")
+		if($dml=="tampil")
+			$query .= $this->select;
+		if($dml=="hapus")
 			$query .= $this->delete;
+		
+			foreach ($opt as $key => $value) 
+			{
+				$key = $key;
+				$val = $value;
+			}
+			$totKey = count($opt);
+			if($totKey == 1) 
+			{
+				if($like == "" or $like == "=") 
+					$query .= " WHERE $key = '$val'";
+				else if($like == "like")
+					$query .= " WHERE $key LIKE '%$val%'";
+				else
+					$query .= " WHERE $key ".$like." '".$val."'";
+			}
 
-		if ($logic != "antara")
-		{
-			$and = false;
-			$value2 = false;
-		}
-
-		if ($pre == "dimana")
-			$pre = "where";
-		else if($pre == "dan")
-			$pre = "and";
-		else if($pre == "atau")
-			$pre = "or";
-
-		$query .= $pre." ".$field." ";
-
-		//not
-		if ($not == "bukan")
-			$not = "not";
- 
-		//operator
-		if ($logic == "sama")
-			$logic = "==";
-		else if ($logic == "bukan")
-			$logic = "!=";
-		else if ($logic == "antara")
-			$logic = "between";
-
-		//like
-		if ($logic == "seperti")
-			$query .= "like %".$value."%";
-		else if($logic == "seperti_depan")
-			$query .= "like %".$value;
-		else if($logic == "seperti_belakang")
-			$query .= "like ".$value."%";
-		else
-			$query .= $not." ".$logic." '".$value."' ";
-
-		if ($and == "dan")
-		{	
-			$and = "and";
-			$query .= $and." '".$value2."'";
-		}
-
-		if ($dml == "tampil")
-			$this->select = $query;
-		else if($dml == "ubah")
+			else 
+			{
+				$query .= " WHERE ";
+				$i = 0;
+				foreach ($opt as $key => $value) 
+				{
+					if($i++ == count($opt) - 1) 
+						$and = "";
+					else
+						$and = "and";
+					if($like == "") 
+						$query .= $key . " = '" . $value. "' ".$and." ";
+					else
+						$query .= $key . " LIKE '%" . $value. "%' ".$and." ";
+				}
+			}
+		if($dml=="ubah")
 			$this->update = $query;
-		else if($dml == "hapus")
+		if($dml=="tampil")
+			$this->select = $query;
+		if($dml=="hapus")
 			$this->delete = $query;
-
 		return $this;
 	}
 
@@ -123,7 +100,6 @@ class back_index
 		$this->select .= "order by '".$field."' ";
 		return $this;
 	}
-
 	public function having($field, $operator, $value)
 	{
 		$this->select .= "having (".$field.") ".$operator." ".$value;
@@ -146,7 +122,6 @@ class back_index
 			if ($value != $end)
 				$this->update .= ", ";
 		}
-
 		return $this;
 	}
 
@@ -156,8 +131,16 @@ class back_index
 		return $this;
 	}
 
-	public function selesai($end)
+	public function eksekusi($query)
 	{
-		return $this->$end;
+		if($query=="masukkan")
+			$q = mysqli_query($this->conn, $this->insert);
+		else if($query=="tampil")
+			$q = mysqli_query($this->conn, $this->select);
+		else if($query=="ubah")
+			$q = mysqli_query($this->conn, $this->update);
+		else if($query=="hapus")
+			$q = mysqli_query($this->conn, $this->delete);
+		return $q;
 	}
 }
